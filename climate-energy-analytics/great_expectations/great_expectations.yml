@@ -1,0 +1,48 @@
+config_version: 3.0
+
+plugins_directory: plugins/
+
+stores:
+  expectations_store:
+    class_name: ExpectationsStore
+    store_backend:
+      class_name: TupleFilesystemStoreBackend
+      base_directory: expectations/
+  checkpoint_store:
+    class_name: CheckpointStore
+    store_backend:
+      class_name: TupleFilesystemStoreBackend
+      base_directory: checkpoints/
+
+checkpoint_store_name: checkpoint_store
+expectations_store_name: expectations_store
+validations_store_name: validations_store
+evaluation_parameter_store_name: evaluation_parameter_store
+
+datasources:
+  athena_silver:
+    class_name: Datasource
+    module_name: great_expectations.datasource
+    execution_engine:
+      class_name: SqlAlchemyExecutionEngine
+      module_name: great_expectations.execution_engine
+      connection_string: awsathena+rest://@athena.us-east-1.amazonaws.com:443/
+      s3_staging_dir: s3://climate-energy-raw-data/athena_results/
+    data_connectors:
+      silver_tables:
+        name: silver_tables
+        class_name: InferredAssetSqlDataConnector
+        module_name: great_expectations.datasource.data_connector
+        include_schema_name: true
+        introspection_directives:
+          schema_name: silver
+notebooks:
+data_docs_sites:
+config_variables_file_path:
+anonymous_usage_statistics:
+  data_context_id: f70a6305-b65d-428a-b4da-1d3f1e6fea36
+  enabled: true
+include_rendered_content:
+  globally: false
+  expectation_suite: false
+  expectation_validation_result: false

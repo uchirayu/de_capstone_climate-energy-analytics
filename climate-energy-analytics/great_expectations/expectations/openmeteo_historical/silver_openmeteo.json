@@ -1,0 +1,32 @@
+{
+  "expectation_suite_name": "silver_openmeteo",
+  "expectations": [
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "temperature",
+        "min_value": -20,
+        "max_value": 80
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "windspeed",
+        "min_value": 0,
+        "max_value": 60
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "precipitation",
+        "min_value": 0
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "city" }
+    }
+  ]
+}

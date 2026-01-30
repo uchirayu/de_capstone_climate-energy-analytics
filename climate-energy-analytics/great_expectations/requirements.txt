@@ -1,0 +1,6 @@
+great-expectations
+boto3
+pyathena
+sqlalchemy
+pandas
+s3fs

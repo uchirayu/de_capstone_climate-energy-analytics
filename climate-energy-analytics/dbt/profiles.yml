@@ -1,0 +1,21 @@
+silver:
+  target: dev
+  outputs:
+    dev:
+      type: athena
+      region_name: us-east-1
+      schema: silver       # this is your Athena database
+      database: AwsDataCatalog 
+      s3_staging_dir: s3://climate-energy-raw-data/athena_results/
+      s3_data_dir: s3://climate-energy-raw-data/
+
+gold:
+  target: dev
+  outputs:
+    dev:
+      type: athena
+      region_name: us-east-1
+      schema: gold
+      database: AwsDataCatalog 
+      s3_staging_dir: s3://climate-energy-raw-data/athena_results_gold/
+      s3_data_dir: s3://climate-energy-raw-data/gold/

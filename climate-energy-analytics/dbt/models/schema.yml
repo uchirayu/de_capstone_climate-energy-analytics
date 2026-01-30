@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: eia_silver
+    columns:
+      - name: price
+        tests:
+          - accepted_range:
+              min_value: 0
+  
+  - name: openweather_silver
+    columns:
+      - name: temperature
+        tests:
+          - not_null
+      - name: visibility
+        tests:
+          - not_null
+      - name: weather_status
+        tests:
+          - not_null
+
+models:
+  - name: weather_data_gold
+    tests:
+      - not_empty
+      
+    columns:
+      - name: ingestion_date
+        tests:
+          - not_null
+
+      - name: observation_date
+        tests:
+          - not_null
+
+      - name: source
+        tests:
+          - accepted_values:
+              values: ['openweather', 'openmeteo']
+      
+      - name: temperature
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "temperature BETWEEN -40 AND 60"

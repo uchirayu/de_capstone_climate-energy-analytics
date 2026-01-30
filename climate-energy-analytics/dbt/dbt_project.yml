@@ -1,0 +1,18 @@
+name: silver
+version: 1.0.0
+
+profile: silver
+
+model-paths: ["models"]
+test-paths: ["tests"]
+
+models:
+  silver:
+    bronze:
+      +materialized: view
+    silver:
+      +materialized: table
+      +schema: silver
+    gold:
+      +materialized: table
+      +schema: gold

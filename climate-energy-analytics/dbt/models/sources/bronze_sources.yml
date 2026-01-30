@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: bronze
+    schema: silver
+    tables:
+      - name: noaa_raw
+      - name: openweather_raw
+      - name: eia_raw
+      - name: sensor_raw
+      - name: openmeteo_raw

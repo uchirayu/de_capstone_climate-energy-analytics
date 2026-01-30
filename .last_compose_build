@@ -1,0 +1,197 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  zookeeper:
+    container_name: zookeeper
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - kafka-network
+
+  kafka:
+    container_name: kafka
+    image: confluentinc/cp-kafka:7.5.0
+      # Add a new Kafka topic for OpenMeteo historical data
+      #
+      # Kafka topic: openmeteo_historical
+      # Used for sending OpenMeteo historical weather data to S3 and consumers
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - kafka-network
+  localstack:
+    image: localstack/localstack
+    container_name: localstack
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: us-east-1
+      DEBUG: "1"
+    volumes:
+      - "./climate-energy-analytics/docker/localstack:/var/lib/localstack"
+
+  kafka-consumer:
+    build: ./climate-energy-analytics/docker/kafka_consumer
+    container_name: kafka-consumer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - kafka-network
+  
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:latest
+    depends_on:
+      - kafka
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
+      CONNECT_GROUP_ID: "kafka-connect-group"
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_CONFIG_STORAGE_TOPIC: "connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "connect-status"
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      AWS_ACCESS_KEY_ID: "AWS_ACCESS_KEY_ID"
+      AWS_SECRET_ACCESS_KEY: "AWS_SECRET_ACCESS_KEY"
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/etc/kafka-connect/jars"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+    volumes:
+      - ./connect-plugins:/etc/kafka-connect/jars
+    ports:
+      - "8083:8083"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  spark:
+    build: ./climate-energy-analytics/docker/spark
+    depends_on:
+      - kafka
+      - localstack
+    env_file:
+      - .env
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    restart: unless-stopped
+
+  fastapi:
+    build: ./climate-energy-analytics/docker/api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - kafka-network
+    
+  simulator:
+    build: ./climate-energy-analytics/docker/api
+    depends_on:
+      fastapi:
+        condition: service_healthy
+    command: ["/bin/sh", "-c", "/app/wait_and_run_simulator.sh"]
+    restart: unless-stopped
+  
+  dbt:
+    build:
+      context: ./climate-energy-analytics/docker/dbt
+    container_name: dbt
+    env_file:
+      - .env
+    volumes:
+      - ./climate-energy-analytics/dbt:/usr/app/dbt
+      - ~/.aws:/root/.aws:ro
+    working_dir: /usr/app/dbt
+    command: ["tail", "-f", "/dev/null"]
+    networks:
+      - kafka-network
+
+  airflow-webserver:
+    build: ./climate-energy-analytics/docker/dairflow
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+      - localstack
+      - postgres
+    networks:
+      - default
+      - kafka-network
+    command: ["webserver"]
+    volumes:
+      - ./climate-energy-analytics/airflow/dags:/opt/airflow/dags
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+
+  airflow-scheduler:
+    build: ./climate-energy-analytics/docker/dairflow
+    depends_on:
+      - kafka
+      - localstack
+      - postgres
+    env_file:
+      - .env
+    volumes:
+      - ./climate-energy-analytics/airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./climate-energy-analytics/dbt:/dbt
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    command: ["scheduler"]
+    restart: unless-stopped
+    networks:
+      - default
+      - kafka-network
+volumes:
+  postgres_data:
+
+
+networks:
+  kafka-network:
+    driver: bridge

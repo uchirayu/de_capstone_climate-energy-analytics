@@ -1,0 +1,31 @@
+name: silver_checkpoints
+config_version: 1.0
+class_name: Checkpoint
+run_name_template: '%Y-%m-%d silver_checkpoints run'
+validations:
+  - batch_request:
+      datasource_name: athena_silver
+      data_asset_name: silver.eia_energy
+    expectation_suite_name: silver_eia
+  - batch_request:
+      datasource_name: athena_silver
+      data_asset_name: silver.openweather_monthly
+    expectation_suite_name: silver_openweather
+  - batch_request:
+      datasource_name: athena_silver
+      data_asset_name: silver.openmeteo_historical
+    expectation_suite_name: silver_openmeteo
+  - batch_request:
+      datasource_name: athena_silver
+      data_asset_name: silver.sensor_readings
+    expectation_suite_name: silver_sensor
+action_list:
+  - name: store_validation_result
+    action:
+      class_name: StoreValidationResultAction
+  - name: store_evaluation_params
+    action:
+      class_name: StoreEvaluationParametersAction
+  - name: update_data_docs
+    action:
+      class_name: UpdateDataDocsAction

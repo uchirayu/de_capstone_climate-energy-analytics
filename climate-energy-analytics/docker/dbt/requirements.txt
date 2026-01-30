@@ -1,0 +1,5 @@
+boto3
+dbt-core==1.7.9
+dbt-postgres
+dbt-athena-community==1.7.2
+protobuf>=4.21.0,<5.0.0
