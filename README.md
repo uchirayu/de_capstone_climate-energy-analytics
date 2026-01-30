@@ -40,50 +40,48 @@ This project enables:
 ---
 
 ## High-Level Architecture
-┌──────────────────────────────┐
-│ Data Sources │
-│──────────────────────────────│
-│ • OpenWeather API │
-│ • OpenMeteo API │
-│ • NOAA Climate Data │
-│ • EIA Energy Prices │
-│ • Simulated Sensor / IoT │
-└──────────────┬───────────────┘
-↓
-┌──────────────────────────────┐
-│ FastAPI Ingestion Layer │
-│ (API Gateway) │
-└──────────────┬───────────────┘
-↓
-┌──────────────────────────────┐
-│ Kafka + Zookeeper │
-│ (Streaming Backbone) │
-└──────────────┬───────────────┘
-↓
-┌──────────────────────────────┐
-│ Kafka Consumer │
-│ (Batching + Retries) │
-└──────────────┬───────────────┘
-↓
-┌──────────────────────────────┐
-│ AWS S3 – Bronze Layer │
-│ (Raw JSON Data) │
-└──────────────┬───────────────┘
-↓
-┌──────────────────────────────┐
-│ dbt Transformations │
-│ Bronze → Silver → Gold │
-└──────────────┬───────────────┘
-↓
-┌──────────────────────────────┐
-│ AWS Glue + Athena │
-│ (Metadata + SQL Analytics) │
-└──────────────┬───────────────┘
-↓
-┌──────────────────────────────┐
-│ Grafana Dashboards │
-│ (Visualization Layer) │
-└──────────────────────────────┘
+
+graph TD
+    subgraph "Data Sources (External APIs & IoT)"
+        DS1["OpenWeather API"]
+        DS2["OpenMeteo API"]
+        DS3["NOAA Climate Data"]
+        DS4["EIA Energy Prices"]
+        DS5["Simulated Sensor / IoT"]
+    end
+
+    DS1 & DS2 & DS3 & DS4 & DS5 --> API
+
+    subgraph "Ingestion & Streaming"
+        API["FastAPI Ingestion Layer<br/>(API Gateway)"]
+        KAFKA["Kafka + Zookeeper<br/>(Streaming Backbone)"]
+        CONS["Kafka Consumer<br/>(Batching + Retries)"]
+    end
+
+    API --> KAFKA
+    KAFKA --> CONS
+
+    subgraph "Storage & Data Lakehouse"
+        S3B["AWS S3 – Bronze Layer<br/>(Raw JSON Data)"]
+        DBT["dbt Transformations<br/>(Bronze → Silver → Gold)"]
+        GLUE["AWS Glue + Athena<br/>(Metadata + SQL Analytics)"]
+    end
+
+    CONS --> S3B
+    S3B --> DBT
+    DBT --> GLUE
+
+    subgraph "Visualization & Monitoring"
+        GRAFANA["Grafana Dashboards<br/>(Visualization Layer)"]
+    end
+
+    GLUE --> GRAFANA
+
+    %% Styling
+    style API fill:#f9f,stroke:#333,stroke-width:2px
+    style KAFKA fill:#bbf,stroke:#333,stroke-width:2px
+    style S3B fill:#dfd,stroke:#333,stroke-width:2px
+    style GRAFANA fill:#fdb,stroke:#333,stroke-width:2px
 
 
 **All services run inside Docker containers**
